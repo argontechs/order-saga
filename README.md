@@ -24,7 +24,7 @@ flowchart LR
     SHP -->|OrderShipped / ShipmentFailed| K
     K -->|all events| ORD
     K -->|all events| VIEW[order-view-service]
-    VIEW -->|GET /orders/id/timeline| Client
+    VIEW -->|"GET /orders/{id}/timeline"| Client
 ```
 
 Each service also owns a Postgres database (`orders_db`, `payments_db`, `inventory_db`,
