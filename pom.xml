@@ -20,5 +20,29 @@
   <modules>
     <module>common-events</module>
     <module>common-messaging</module>
+    <module>order-service</module>
   </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <includes>
+            <include>**/Test*.java</include>
+            <include>**/*Test.java</include>
+            <include>**/*Tests.java</include>
+            <include>**/*TestCase.java</include>
+            <include>**/*IT.java</include>
+          </includes>
+          <!-- Testcontainers 1.21.0 hardcodes RemoteApiVersion.VERSION_1_32 as a fallback
+               whenever DefaultDockerClientConfig can't resolve an api version (it only reads
+               the "api.version" system property, not DOCKER_API_VERSION). Local Docker Engine's
+               MinAPIVersion is 1.40, so the hardcoded 1.32 request is rejected. Pin a compatible
+               version explicitly. -->
+          <argLine>-Dapi.version=1.41</argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
