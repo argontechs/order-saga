@@ -1,6 +1,6 @@
 # order-saga
 
-![CI](https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/argontechs/order-saga/actions/workflows/ci.yml/badge.svg)
 
 A choreography-based order processing saga over Apache Kafka, built with Spring Boot 3.5 and Java 21.
 Four services — order, payment, inventory, shipping — react to each other's events with no central
