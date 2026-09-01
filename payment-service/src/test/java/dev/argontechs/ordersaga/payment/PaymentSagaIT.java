@@ -40,8 +40,7 @@ class PaymentSagaIT extends AbstractKafkaIT {
             var records = kafka.consume(Topics.PAYMENTS);
             assertThat(records).anySatisfy(r -> {
                 assertThat(r.key()).isEqualTo(orderId.toString());
-                assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                        .isEqualTo(PaymentAuthorized.class.getName());
+                assertThat(r.value()).isInstanceOf(PaymentAuthorized.class);
             });
         });
     }
@@ -57,8 +56,7 @@ class PaymentSagaIT extends AbstractKafkaIT {
         });
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
             assertThat(kafka.consume(Topics.PAYMENTS)).anySatisfy(r ->
-                assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                        .isEqualTo(PaymentFailed.class.getName())));
+                assertThat(r.value()).isInstanceOf(PaymentFailed.class)));
     }
 
     @Test

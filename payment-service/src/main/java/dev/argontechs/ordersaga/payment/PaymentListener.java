@@ -32,31 +32,31 @@ public class PaymentListener {
     @KafkaHandler
     @Transactional
     public void on(OrderCreated event) {
-        if (!guard.firstTime(event.eventId())) return;
+        if (!guard.firstTime(event.getEventId())) return;
 
         var paymentId = UUID.randomUUID();
-        if (psp.authorize(event.totalAmount())) {
-            payments.save(new Payment(paymentId, event.orderId(), event.totalAmount(), PaymentStatus.AUTHORIZED));
-            outbox.write(Topics.PAYMENTS, event.orderId(), new PaymentAuthorized(
-                    UUID.randomUUID(), event.orderId(), Instant.now(), paymentId,
-                    event.totalAmount(), event.items()));
+        if (psp.authorize(event.getTotalAmount())) {
+            payments.save(new Payment(paymentId, event.getOrderId(), event.getTotalAmount(), PaymentStatus.AUTHORIZED));
+            outbox.write(Topics.PAYMENTS, event.getOrderId(), new PaymentAuthorized(
+                    UUID.randomUUID(), event.getOrderId(), Instant.now(), paymentId,
+                    event.getTotalAmount(), event.getItems()));
         } else {
-            payments.save(new Payment(paymentId, event.orderId(), event.totalAmount(), PaymentStatus.FAILED));
-            outbox.write(Topics.PAYMENTS, event.orderId(), new PaymentFailed(
-                    UUID.randomUUID(), event.orderId(), Instant.now(), "declined by PSP"));
+            payments.save(new Payment(paymentId, event.getOrderId(), event.getTotalAmount(), PaymentStatus.FAILED));
+            outbox.write(Topics.PAYMENTS, event.getOrderId(), new PaymentFailed(
+                    UUID.randomUUID(), event.getOrderId(), Instant.now(), "declined by PSP"));
         }
     }
 
     @KafkaHandler
     @Transactional
     public void on(OutOfStock event) {
-        refund(event.eventId(), event.orderId());
+        refund(event.getEventId(), event.getOrderId());
     }
 
     @KafkaHandler
     @Transactional
     public void on(ShipmentFailed event) {
-        refund(event.eventId(), event.orderId());
+        refund(event.getEventId(), event.getOrderId());
     }
 
     private void refund(UUID eventId, UUID orderId) {

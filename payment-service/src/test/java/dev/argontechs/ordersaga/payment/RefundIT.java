@@ -39,8 +39,7 @@ class RefundIT extends AbstractKafkaIT {
                         .isEqualTo(PaymentStatus.REFUNDED));
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
                 assertThat(kafka.consume(Topics.PAYMENTS)).anySatisfy(r ->
-                        assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                                .isEqualTo(PaymentRefunded.class.getName())));
+                        assertThat(r.value()).isInstanceOf(PaymentRefunded.class)));
     }
 
     @Test
