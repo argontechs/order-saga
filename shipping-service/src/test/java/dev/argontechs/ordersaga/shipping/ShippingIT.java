@@ -34,8 +34,7 @@ class ShippingIT {
                     assertThat(shipments.findByOrderId(orderId)).isPresent());
             await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
                     assertThat(kafka.consume(Topics.SHIPPING)).anySatisfy(r ->
-                            assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                                    .isEqualTo(OrderShipped.class.getName())));
+                            assertThat(r.value()).isInstanceOf(OrderShipped.class)));
         }
     }
 
@@ -54,8 +53,7 @@ class ShippingIT {
 
             await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
                     assertThat(kafka.consume(Topics.SHIPPING)).anySatisfy(r ->
-                            assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                                    .isEqualTo(ShipmentFailed.class.getName())));
+                            assertThat(r.value()).isInstanceOf(ShipmentFailed.class)));
         }
     }
 }

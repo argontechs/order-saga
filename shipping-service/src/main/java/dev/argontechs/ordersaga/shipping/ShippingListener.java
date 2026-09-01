@@ -33,17 +33,17 @@ public class ShippingListener {
     @KafkaHandler
     @Transactional
     public void on(InventoryReserved event) {
-        if (!guard.firstTime(event.eventId())) return;
+        if (!guard.firstTime(event.getEventId())) return;
 
         var shipmentId = UUID.randomUUID();
         if (ThreadLocalRandom.current().nextDouble() >= failureRate) {
-            shipments.save(new Shipment(shipmentId, event.orderId(), ShipmentStatus.CREATED));
-            outbox.write(Topics.SHIPPING, event.orderId(),
-                    new OrderShipped(UUID.randomUUID(), event.orderId(), Instant.now(), shipmentId));
+            shipments.save(new Shipment(shipmentId, event.getOrderId(), ShipmentStatus.CREATED));
+            outbox.write(Topics.SHIPPING, event.getOrderId(),
+                    new OrderShipped(UUID.randomUUID(), event.getOrderId(), Instant.now(), shipmentId));
         } else {
-            shipments.save(new Shipment(shipmentId, event.orderId(), ShipmentStatus.FAILED));
-            outbox.write(Topics.SHIPPING, event.orderId(),
-                    new ShipmentFailed(UUID.randomUUID(), event.orderId(), Instant.now(), "carrier unavailable"));
+            shipments.save(new Shipment(shipmentId, event.getOrderId(), ShipmentStatus.FAILED));
+            outbox.write(Topics.SHIPPING, event.getOrderId(),
+                    new ShipmentFailed(UUID.randomUUID(), event.getOrderId(), Instant.now(), "carrier unavailable"));
         }
     }
 
