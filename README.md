@@ -156,6 +156,72 @@ consumer group on it was permanently stuck with 1 of the intended 3 partitions, 
 in `docker-compose.yml`, plus every topic — including all four `<group>.DLT` topics — declared as an
 explicit `NewTopic` bean (see each service's `TopicConfig`). Nothing gets to exist by accident.
 
+### Observability
+
+**Tracing through the outbox.** The transactional outbox (see [Transactional
+outbox](#patterns) above) buys delivery safety at a cost: `OutboxPublisher` runs on a
+`@Scheduled` thread, not the thread that handled the original HTTP request or Kafka
+record. That scheduler thread has no span of its own to inherit — left alone, the trace
+would simply end at the outbox write, and Kafka-side spring-kafka observation would start
+a brand-new, unrelated trace for the publish. Worse, since every service has
+`spring.kafka.template.observation-enabled: true`, `KafkaTemplate` wraps every `send()` in
+its own Observation that unconditionally injects a `traceparent` header derived from
+whatever's active *on that thread* — so even manually copying a header across would get
+silently overwritten.
+
+The fix, in `OutboxWriter` and `OutboxPublisher` (`common-messaging`):
+
+1. `OutboxWriter.write(...)` runs inside the caller's own transaction — the same thread
+   and span as the original HTTP handler or Kafka listener. It reads the current span's
+   W3C `traceparent` via the Micrometer `Tracer`/`Propagator` and stores it in a
+   `traceparent` column on the outbox row.
+2. `OutboxPublisher.publishPending()` (the `@Scheduled` poll, every 500ms) reads that
+   stored `traceparent` back and extracts it into a real `Span` with
+   `propagator.extract(...)`. It then opens that span as the *current* span on the
+   scheduler thread with `tracer.withSpan(span)` for the duration of `kafkaTemplate.send()`.
+   Because a span is now current, `KafkaTemplate`'s own observation re-derives and
+   re-injects that same, correctly-parented `traceparent` instead of clobbering it with
+   an unrelated one.
+3. The consuming service's spring-kafka listener observation extracts that header on
+   receipt and parents its new consumer span onto it — continuing the same trace.
+
+The result: one Jaeger trace covers a request from `POST /orders` through order-service's
+DB write, across the outbox hop, through every Kafka publish/consume pair, all the way
+through payment → inventory → shipping (and back to order-service for status updates).
+Without the `withSpan` scope in step 2, each outbox-published hop would silently start a
+new, disconnected trace — this was an actual observed regression during development, not
+a hypothetical.
+
+**Metrics.** All five services (order, payment, inventory, shipping, order-view) bring in
+`micrometer-registry-prometheus` and `micrometer-tracing-bridge-otel`, and expose
+`management.endpoints.web.exposure.include: health,prometheus`, so each serves scrapeable
+metrics at `/actuator/prometheus` — request latency, Kafka consumer lag, listener
+processing time, JVM heap, and more, all with per-service labels. `KafkaErrorConfig` wraps
+the DLT recoverer with a counter increment on every dead-letter publish, so the retry
+exhaustion path from [DLT with backoff](#patterns) is itself observable as
+`ordersaga.dlt.messages{group=<consumer-group>}`, without touching DLT routing.
+`infra/prometheus.yml` scrapes all five `/actuator/prometheus` endpoints every 5s, and a
+Grafana dashboard (uid `order-saga`, provisioned from `infra/grafana/provisioning/`) loads
+automatically with panels for HTTP p95 latency per service, HTTP request rate, Kafka
+consumer max lag, Kafka listener processing p95, JVM heap used per service, and DLT
+messages total.
+
+**How to run it.** Tracing (Jaeger) is base infra and comes up with any profile; metrics
+(Prometheus + Grafana) sit behind their own `obs` profile:
+
+```bash
+docker compose --profile app --profile obs up --build
+```
+
+- Jaeger UI — `http://localhost:16686` (search by service name, e.g. `order-service`)
+- Prometheus — `http://localhost:9090`
+- Grafana — `http://localhost:3000` (anonymous viewer access enabled locally; the "Order
+  Saga" dashboard is provisioned automatically, no manual import needed)
+
+<!-- Screenshots of a live trace and the dashboard are captured separately post-merge and
+     will land at docs/img/jaeger-trace.png and docs/img/grafana-dashboard.png. Run the
+     stack locally per the instructions above to see them live in the meantime. -->
+
 ## Quickstart
 
 ```bash
@@ -163,7 +229,13 @@ docker compose up -d                                  # infra only, run services
 # or the whole system:
 mvn -DskipTests package
 docker compose --profile app up --build
+# add tracing + metrics UIs (Jaeger is base infra either way):
+docker compose --profile app --profile obs up --build
 ```
+
+Jaeger is `http://localhost:16686` no matter which profile you run. With `--profile obs`
+also added, Prometheus is `http://localhost:9090` and Grafana (dashboard auto-provisioned)
+is `http://localhost:3000`.
 
 > The Compose credentials (`postgres` / `postgres`) and the Kafka `PLAINTEXT` listener are
 > local-development placeholders only — never use them as production values.
@@ -251,6 +323,9 @@ This is phase 1 of a 4-phase plan; see the design spec at
   materializing a full per-order event timeline from all four topics via a Streams topology, exposed
   through interactive queries (`GET /orders/{id}/timeline`).~~ Done — see
   [CQRS read model (Kafka Streams)](#cqrs-read-model-kafka-streams) above.
-- **Phase 4 — Observability.** Micrometer + OpenTelemetry tracing to Jaeger (one order's trace across
+- ~~**Phase 4 — Observability.** Micrometer + OpenTelemetry tracing to Jaeger (one order's trace across
   all four services and every Kafka hop), plus Prometheus + Grafana dashboards for consumer lag,
-  throughput, and DLT counts.
+  throughput, and DLT counts.~~ Done — see [Observability](#observability) above. Trace continuity
+  across the outbox hop (the part that actually breaks by default) required the `traceparent` column
+  + `withSpan` scope trick described there; screenshots of a live trace and dashboard weren't captured
+  as part of this phase — run the stack locally per the Observability section to see them.
