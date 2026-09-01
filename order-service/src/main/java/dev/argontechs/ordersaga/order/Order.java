@@ -39,6 +39,7 @@ public class Order {
 
     /** Advance only forward; ignore stale/out-of-order events. Terminal states never change. */
     public void advanceTo(OrderStatus next) {
+        if (next == OrderStatus.CANCELLED) return; // cancellation only via cancel(reason)
         if (status == OrderStatus.CANCELLED || status == OrderStatus.CONFIRMED) return;
         if (next.ordinal() > status.ordinal()) this.status = next;
     }
