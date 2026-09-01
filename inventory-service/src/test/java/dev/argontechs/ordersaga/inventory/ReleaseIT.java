@@ -51,7 +51,6 @@ class ReleaseIT extends AbstractKafkaIT {
                 assertThat(available("P100")).isEqualTo(baseline));
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
                 assertThat(kafka.consume(Topics.INVENTORY)).anySatisfy(r ->
-                        assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                                .isEqualTo(InventoryReleased.class.getName())));
+                        assertThat(r.value()).isInstanceOf(InventoryReleased.class)));
     }
 }

@@ -46,8 +46,7 @@ class InventoryIT extends AbstractKafkaIT {
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
                 assertThat(kafka.consume(Topics.INVENTORY)).anySatisfy(r -> {
                     assertThat(r.key()).isEqualTo(orderId.toString());
-                    assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                            .isEqualTo(InventoryReserved.class.getName());
+                    assertThat(r.value()).isInstanceOf(InventoryReserved.class);
                 }));
     }
 
@@ -59,8 +58,7 @@ class InventoryIT extends AbstractKafkaIT {
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
                 assertThat(kafka.consume(Topics.INVENTORY)).anySatisfy(r -> {
                     assertThat(r.key()).isEqualTo(orderId.toString());
-                    assertThat(new String(r.headers().lastHeader("__TypeId__").value()))
-                            .isEqualTo(OutOfStock.class.getName());
+                    assertThat(r.value()).isInstanceOf(OutOfStock.class);
                 }));
         assertThat(available("P200")).isEqualTo(5);
     }

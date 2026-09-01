@@ -26,23 +26,23 @@ public class InventoryService {
      *  shortage leaves stock untouched and only an OutOfStock event committed. */
     @Transactional
     public void reserve(UUID orderId, List<OrderItem> items) {
-        var sorted = items.stream().sorted(Comparator.comparing(OrderItem::productId)).toList();
+        var sorted = items.stream().sorted(Comparator.comparing(OrderItem::getProductId)).toList();
         for (var item : sorted) {
             var available = ((Number) em.createNativeQuery(
                     "SELECT available FROM stock WHERE product_id = ?1 FOR UPDATE")
-                    .setParameter(1, item.productId()).getSingleResult()).intValue();
-            if (available < item.quantity()) {
+                    .setParameter(1, item.getProductId()).getSingleResult()).intValue();
+            if (available < item.getQuantity()) {
                 outbox.write(Topics.INVENTORY, orderId,
-                        new OutOfStock(UUID.randomUUID(), orderId, Instant.now(), item.productId()));
+                        new OutOfStock(UUID.randomUUID(), orderId, Instant.now(), item.getProductId()));
                 return;
             }
         }
         for (var item : sorted) {
             em.createNativeQuery("UPDATE stock SET available = available - ?1 WHERE product_id = ?2")
-                    .setParameter(1, item.quantity()).setParameter(2, item.productId()).executeUpdate();
+                    .setParameter(1, item.getQuantity()).setParameter(2, item.getProductId()).executeUpdate();
             em.createNativeQuery("INSERT INTO reservations (order_id, product_id, quantity) VALUES (?1, ?2, ?3)")
-                    .setParameter(1, orderId).setParameter(2, item.productId())
-                    .setParameter(3, item.quantity()).executeUpdate();
+                    .setParameter(1, orderId).setParameter(2, item.getProductId())
+                    .setParameter(3, item.getQuantity()).executeUpdate();
         }
         outbox.write(Topics.INVENTORY, orderId,
                 new InventoryReserved(UUID.randomUUID(), orderId, Instant.now()));

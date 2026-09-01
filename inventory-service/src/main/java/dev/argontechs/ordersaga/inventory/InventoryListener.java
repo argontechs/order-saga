@@ -24,15 +24,15 @@ public class InventoryListener {
     @KafkaHandler
     @Transactional
     public void on(PaymentAuthorized event) {
-        if (!guard.firstTime(event.eventId())) return;
-        inventory.reserve(event.orderId(), event.items());
+        if (!guard.firstTime(event.getEventId())) return;
+        inventory.reserve(event.getOrderId(), event.getItems());
     }
 
     @KafkaHandler
     @Transactional
     public void on(ShipmentFailed event) {
-        if (!guard.firstTime(event.eventId())) return;
-        inventory.release(event.orderId());
+        if (!guard.firstTime(event.getEventId())) return;
+        inventory.release(event.getOrderId());
     }
 
     @KafkaHandler(isDefault = true)
