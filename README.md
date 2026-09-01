@@ -128,7 +128,8 @@ docker compose --profile app up --build
 > local-development placeholders only — never use them as production values.
 
 Services listen on: order-service `8081`, payment-service `8082`, inventory-service `8083`,
-shipping-service `8084`. Kafka is reachable from the host at `localhost:9092`.
+shipping-service `8084`. Kafka is reachable from the host at `localhost:9092`. Schema Registry is at
+`http://localhost:8085`.
 
 ## Demo script
 
