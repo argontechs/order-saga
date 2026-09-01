@@ -15,8 +15,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfig.class)
-class CreateOrderIT {
+@Import({TestcontainersConfig.class, KafkaTestSupport.class})
+class CreateOrderIT extends AbstractKafkaIT {
 
     @Autowired TestRestTemplate rest;
     @Autowired OrderRepository orders;

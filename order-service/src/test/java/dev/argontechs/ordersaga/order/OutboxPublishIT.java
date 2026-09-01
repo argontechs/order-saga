@@ -10,8 +10,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Duration;
 import java.util.Map;
@@ -19,15 +17,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.kafka.consumer.group-id=order-service")
-@Import(TestcontainersConfig.class)
-class OutboxPublishIT {
-
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.kafka.bootstrap-servers", TestcontainersConfig::getBootstrapServers);
-    }
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import({TestcontainersConfig.class, KafkaTestSupport.class})
+class OutboxPublishIT extends AbstractKafkaIT {
 
     @Autowired TestRestTemplate rest;
     @Autowired org.springframework.boot.autoconfigure.kafka.KafkaProperties kafkaProperties;
