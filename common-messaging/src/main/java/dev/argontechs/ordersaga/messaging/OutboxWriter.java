@@ -1,7 +1,6 @@
 package dev.argontechs.ordersaga.messaging;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.avro.specific.SpecificRecordBase;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -11,20 +10,20 @@ import java.util.UUID;
 public class OutboxWriter {
 
     private final OutboxRepository repository;
-    private final ObjectMapper mapper;
+    private final AvroPayloadCodec codec;
 
-    public OutboxWriter(OutboxRepository repository, ObjectMapper mapper) {
+    public OutboxWriter(OutboxRepository repository, AvroPayloadCodec codec) {
         this.repository = repository;
-        this.mapper = mapper;
+        this.codec = codec;
     }
 
     /** Must be called inside the caller's transaction — that IS the outbox pattern. */
-    public void write(String topic, UUID aggregateId, Object event) {
+    public void write(String topic, UUID aggregateId, SpecificRecordBase event) {
         try {
-            var eventId = (UUID) event.getClass().getMethod("eventId").invoke(event);
+            var eventId = (UUID) event.getClass().getMethod("getEventId").invoke(event);
             repository.save(new OutboxMessage(eventId, aggregateId, topic,
-                    event.getClass().getName(), mapper.writeValueAsString(event), Instant.now()));
-        } catch (JsonProcessingException | ReflectiveOperationException e) {
+                    event.getClass().getName(), codec.toJson(event), Instant.now()));
+        } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Failed to write outbox event", e);
         }
     }

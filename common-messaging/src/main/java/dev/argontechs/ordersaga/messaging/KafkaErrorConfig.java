@@ -1,5 +1,6 @@
 package dev.argontechs.ordersaga.messaging;
 
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -15,8 +16,8 @@ import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
-import org.springframework.kafka.support.serializer.JsonSerializer;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,17 +27,26 @@ public class KafkaErrorConfig {
     @Bean
     @SuppressWarnings("unchecked")
     public CommonErrorHandler kafkaErrorHandler(KafkaProperties props,
-            @Value("${spring.kafka.consumer.group-id}") String group) {
+            @Value("${spring.kafka.consumer.group-id}") String group,
+            @Value("${spring.kafka.properties.schema.registry.url}") String registryUrl) {
         Map<String, Object> producerProps = Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, String.join(",", props.getBootstrapServers()));
         var bytesTemplate = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
                 producerProps, new StringSerializer(), new ByteArraySerializer()));
-        var jsonTemplate = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
-                producerProps, new StringSerializer(), new JsonSerializer<>()));
+
+        Map<String, Object> avroProps = new HashMap<>(producerProps);
+        avroProps.put("schema.registry.url", registryUrl);
+        avroProps.put("value.subject.name.strategy",
+                "io.confluent.kafka.serializers.subject.RecordNameStrategy");
+        var avroSerializer = new KafkaAvroSerializer();
+        avroSerializer.configure(avroProps, false);
+
+        var avroTemplate = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
+                producerProps, new StringSerializer(), avroSerializer));
 
         var templates = new LinkedHashMap<Class<?>, KafkaOperations<?, ?>>();
         templates.put(byte[].class, bytesTemplate);   // deserialization poison → raw bytes
-        templates.put(Object.class, jsonTemplate);    // business failure → re-serialized JSON
+        templates.put(Object.class, avroTemplate);    // business failure → Avro-serialized
 
         var recoverer = new DeadLetterPublishingRecoverer(templates,
                 (record, ex) -> new TopicPartition(group + ".DLT", record.partition()));
