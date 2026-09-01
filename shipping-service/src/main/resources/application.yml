@@ -35,6 +35,11 @@ spring:
       observation-enabled: true
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        spring.kafka.listener: true
   tracing:
     sampling:
       probability: 1.0

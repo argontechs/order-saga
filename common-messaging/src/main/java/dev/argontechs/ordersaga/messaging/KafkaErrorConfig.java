@@ -70,8 +70,8 @@ public class KafkaErrorConfig {
     static ConsumerRecordRecoverer countingRecoverer(ConsumerRecordRecoverer dlqRecoverer,
             MeterRegistry registry, String group) {
         return (rec, ex) -> {
-            registry.counter("ordersaga.dlt.messages", "group", group).increment();
             dlqRecoverer.accept(rec, ex);
+            registry.counter("ordersaga.dlt.messages", "group", group).increment();
         };
     }
 }

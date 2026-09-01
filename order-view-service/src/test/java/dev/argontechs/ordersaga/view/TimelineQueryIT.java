@@ -47,6 +47,7 @@ class TimelineQueryIT {
         registry.add("spring.kafka.properties.schema.registry.url", () -> "mock://ordersaga");
         registry.add("spring.kafka.streams.properties.state.dir",
                 () -> System.getProperty("java.io.tmpdir") + "/kstreams-test-" + UUID.randomUUID());
+        registry.add("management.tracing.enabled", () -> "false");
     }
 
     @Autowired TestRestTemplate rest;

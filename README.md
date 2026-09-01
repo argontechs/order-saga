@@ -163,7 +163,7 @@ outbox](#patterns) above) buys delivery safety at a cost: `OutboxPublisher` runs
 `@Scheduled` thread, not the thread that handled the original HTTP request or Kafka
 record. That scheduler thread has no span of its own to inherit — left alone, the trace
 would simply end at the outbox write, and Kafka-side spring-kafka observation would start
-a brand-new, unrelated trace for the publish. Worse, since every service has
+a brand-new, unrelated trace for the publish. Worse, since every saga service has
 `spring.kafka.template.observation-enabled: true`, `KafkaTemplate` wraps every `send()` in
 its own Observation that unconditionally injects a `traceparent` header derived from
 whatever's active *on that thread* — so even manually copying a header across would get
@@ -184,6 +184,12 @@ The fix, in `OutboxWriter` and `OutboxPublisher` (`common-messaging`):
    an unrelated one.
 3. The consuming service's spring-kafka listener observation extracts that header on
    receipt and parents its new consumer span onto it — continuing the same trace.
+
+Every service sets `management.tracing.sampling.probability: 1.0` — trace every request,
+no sampling loss. That's demo posture, chosen so a single order always produces a
+complete trace to look at. A production deployment would sample probabilistically (e.g.
+1-10%) or tail-sample on error/latency, to bound tracing overhead and backend storage
+cost at real traffic volumes.
 
 The result: one Jaeger trace covers a request from `POST /orders` through order-service's
 DB write, across the outbox hop, through every Kafka publish/consume pair, all the way
@@ -310,7 +316,7 @@ paths exercised identically by every consumer — a deliberate spec deviation ra
 
 ## Roadmap
 
-This is phase 1 of a 4-phase plan; see the design spec at
+Built in four phases, all complete — the spec lives at
 [`docs/superpowers/specs/2026-09-01-order-saga-design.md`](docs/superpowers/specs/2026-09-01-order-saga-design.md).
 
 - ~~**Phase 2 — Schema Registry + Avro.** Migrate events from JSON to Avro-with-Confluent-Schema-Registry,
