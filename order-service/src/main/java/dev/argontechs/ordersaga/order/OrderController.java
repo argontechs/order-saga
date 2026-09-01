@@ -1,6 +1,5 @@
 package dev.argontechs.ordersaga.order;
 
-import dev.argontechs.ordersaga.events.OrderItem;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -8,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,7 +24,8 @@ public class OrderController {
         this.orders = orders;
     }
 
-    record CreateOrderRequest(@NotBlank String customerId, @NotEmpty List<OrderItem> items) {}
+    record ItemDto(String productId, int quantity, BigDecimal unitPrice) {}
+    record CreateOrderRequest(@NotBlank String customerId, @NotEmpty List<ItemDto> items) {}
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody CreateOrderRequest req) {

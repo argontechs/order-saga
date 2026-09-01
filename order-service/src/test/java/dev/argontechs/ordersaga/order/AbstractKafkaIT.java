@@ -25,5 +25,6 @@ abstract class AbstractKafkaIT {
     @DynamicPropertySource
     static void kafkaProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.kafka.bootstrap-servers", TestcontainersConfig::getBootstrapServers);
+        registry.add("spring.kafka.properties.schema.registry.url", () -> "mock://ordersaga");
     }
 }

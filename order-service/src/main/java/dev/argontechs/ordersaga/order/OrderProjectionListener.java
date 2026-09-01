@@ -24,22 +24,22 @@ public class OrderProjectionListener {
     }
 
     @KafkaHandler @Transactional
-    public void on(PaymentAuthorized e) { apply(e.eventId(), e.orderId(), o -> o.advanceTo(OrderStatus.PAID)); }
+    public void on(PaymentAuthorized e) { apply(e.getEventId(), e.getOrderId(), o -> o.advanceTo(OrderStatus.PAID)); }
 
     @KafkaHandler @Transactional
-    public void on(InventoryReserved e) { apply(e.eventId(), e.orderId(), o -> o.advanceTo(OrderStatus.RESERVED)); }
+    public void on(InventoryReserved e) { apply(e.getEventId(), e.getOrderId(), o -> o.advanceTo(OrderStatus.RESERVED)); }
 
     @KafkaHandler @Transactional
-    public void on(OrderShipped e) { apply(e.eventId(), e.orderId(), o -> o.advanceTo(OrderStatus.CONFIRMED)); }
+    public void on(OrderShipped e) { apply(e.getEventId(), e.getOrderId(), o -> o.advanceTo(OrderStatus.CONFIRMED)); }
 
     @KafkaHandler @Transactional
-    public void on(PaymentFailed e) { apply(e.eventId(), e.orderId(), o -> o.cancel(e.reason())); }
+    public void on(PaymentFailed e) { apply(e.getEventId(), e.getOrderId(), o -> o.cancel(e.getReason())); }
 
     @KafkaHandler @Transactional
-    public void on(OutOfStock e) { apply(e.eventId(), e.orderId(), o -> o.cancel("out of stock: " + e.productId())); }
+    public void on(OutOfStock e) { apply(e.getEventId(), e.getOrderId(), o -> o.cancel("out of stock: " + e.getProductId())); }
 
     @KafkaHandler @Transactional
-    public void on(ShipmentFailed e) { apply(e.eventId(), e.orderId(), o -> o.cancel(e.reason())); }
+    public void on(ShipmentFailed e) { apply(e.getEventId(), e.getOrderId(), o -> o.cancel(e.getReason())); }
 
     @KafkaHandler(isDefault = true)
     public void ignore(Object event) {}

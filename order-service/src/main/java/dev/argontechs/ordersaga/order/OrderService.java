@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -30,23 +31,27 @@ public class OrderService {
     }
 
     @Transactional
-    public UUID createOrder(String customerId, List<OrderItem> items) {
+    public UUID createOrder(String customerId, List<OrderController.ItemDto> items) {
         validateItems(items);
 
+        var orderItems = items.stream()
+                .map(dto -> new OrderItem(dto.productId(), dto.quantity(), dto.unitPrice().setScale(2, RoundingMode.HALF_UP)))
+                .toList();
+
         var orderId = UUID.randomUUID();
-        var total = items.stream()
-                .map(i -> i.unitPrice().multiply(BigDecimal.valueOf(i.quantity())))
+        var total = orderItems.stream()
+                .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         orders.save(new Order(orderId, customerId, total));
-        for (var item : items) {
+        for (var item : orderItems) {
             em.createNativeQuery("INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (?,?,?,?)")
-              .setParameter(1, orderId).setParameter(2, item.productId())
-              .setParameter(3, item.quantity()).setParameter(4, item.unitPrice())
+              .setParameter(1, orderId).setParameter(2, item.getProductId())
+              .setParameter(3, item.getQuantity()).setParameter(4, item.getUnitPrice())
               .executeUpdate();
         }
         outbox.write(Topics.ORDERS, orderId,
-                new OrderCreated(UUID.randomUUID(), orderId, Instant.now(), customerId, items, total));
+                new OrderCreated(UUID.randomUUID(), orderId, Instant.now(), customerId, orderItems, total));
         return orderId;
     }
 
@@ -55,7 +60,7 @@ public class OrderService {
     // PK on the second reservation insert (retries -> DLT, order stuck PAID forever with no
     // compensation); a non-positive quantity passes inventory's `available < qty` check and can
     // *increase* stock via `available - (negative qty)`.
-    private void validateItems(List<OrderItem> items) {
+    private void validateItems(List<OrderController.ItemDto> items) {
         var seenProductIds = new HashSet<String>();
         for (var item : items) {
             if (!seenProductIds.add(item.productId())) {
