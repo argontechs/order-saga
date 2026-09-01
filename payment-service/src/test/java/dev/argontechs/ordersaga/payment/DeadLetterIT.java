@@ -24,6 +24,9 @@ class DeadLetterIT extends AbstractKafkaIT {
     @Test
     void poisonMessageLandsInDltWithExceptionHeaders() throws Exception {
         // claims to be OrderCreated but body is not valid JSON for it → deserialization poison
+        // Uses a raw KafkaProducer instead of KafkaTestSupport.send: send() serializes a real
+        // object via the configured JSON serializer, but this test needs to put intentionally
+        // malformed JSON on the wire.
         try (var producer = new KafkaProducer<String, String>(
                 Map.of("bootstrap.servers", kafka.bootstrap()), new StringSerializer(), new StringSerializer())) {
             var record = new ProducerRecord<>("orders.events", null, "poison-key", "{not json at all");

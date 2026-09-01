@@ -73,7 +73,10 @@ in the caller's own database transaction instead; a `@Scheduled` `OutboxPublishe
 rows every 500ms and sends them, marking each `published_at` once the send succeeds
 (`kafkaTemplate.send(...).join()` — synchronous, to preserve per-aggregate ordering). The DB write and
 the "will publish" fact commit atomically; publishing itself is a separate, retryable step. The
-production upgrade path here is Debezium CDC tailing the outbox table's WAL instead of polling it.
+polling publisher assumes a single service instance — it does not use `FOR UPDATE SKIP LOCKED` to
+claim rows, so running multiple instances would double-publish some events, a case the idempotent
+consumers already absorb. The production upgrade path here is Debezium CDC tailing the outbox
+table's WAL instead of polling it.
 
 **Idempotent consumers.** Kafka is at-least-once: a rebalance or a retried delivery can hand a
 listener the same record twice. Every consumer calls `IdempotencyGuard.firstTime(eventId)` — an
@@ -182,6 +185,10 @@ Postgres) runs under plain surefire, so `mvn test` and `mvn verify` both already
 stack (not just Testcontainers) already up and reachable on `localhost:8081`. CI runs both: `build`
 runs `mvn verify`, and `e2e` (depending on `build`) builds images, brings the stack up, runs the e2e
 suite, and tears it down regardless of outcome.
+
+Idempotency-guard and DLT/backoff integration tests live only in `payment-service`, used as the
+representative service, since the guard and the error handler are shared `common-messaging` code
+paths exercised identically by every consumer — a deliberate spec deviation rather than a gap.
 
 ## Roadmap
 
