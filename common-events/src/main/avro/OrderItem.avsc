@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "OrderItem",
+  "namespace": "dev.argontechs.ordersaga.events",
+  "fields": [
+    {"name": "productId", "type": "string"},
+    {"name": "quantity", "type": "int"},
+    {"name": "unitPrice", "type": {"type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2}}
+  ]
+}

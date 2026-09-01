@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "OrderCreated",
+  "namespace": "dev.argontechs.ordersaga.events",
+  "fields": [
+    {"name": "eventId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "orderId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "customerId", "type": "string"},
+    {"name": "items", "type": {"type": "array", "items": "dev.argontechs.ordersaga.events.OrderItem"}},
+    {"name": "totalAmount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2}}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "OrderShipped",
+  "namespace": "dev.argontechs.ordersaga.events",
+  "fields": [
+    {"name": "eventId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "orderId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "shipmentId", "type": {"type": "string", "logicalType": "uuid"}}
+  ]
+}

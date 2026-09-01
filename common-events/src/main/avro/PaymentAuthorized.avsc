@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "PaymentAuthorized",
+  "namespace": "dev.argontechs.ordersaga.events",
+  "doc": "PaymentAuthorized carries items forward so inventory-service needs no order lookup (event enrichment)",
+  "fields": [
+    {"name": "eventId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "orderId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "paymentId", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2}},
+    {"name": "items", "type": {"type": "array", "items": "dev.argontechs.ordersaga.events.OrderItem"}}
+  ]
+}

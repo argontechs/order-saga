@@ -1,9 +1,11 @@
 package dev.argontechs.ordersaga.events;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.apache.avro.io.*;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificDatumWriter;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -13,23 +15,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EventSerializationTest {
 
-    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    @SuppressWarnings("unchecked")
+    private <T extends org.apache.avro.specific.SpecificRecordBase> T roundTrip(T record) throws Exception {
+        // Use the record's own SpecificData model — it registers the logical-type
+        // conversions (decimal/uuid/timestamp) that the default model lacks.
+        var model = record.getSpecificData();
+        var out = new ByteArrayOutputStream();
+        var writer = new SpecificDatumWriter<T>(record.getSchema(), model);
+        var encoder = EncoderFactory.get().binaryEncoder(out, null);
+        writer.write(record, encoder);
+        encoder.flush();
+        var reader = new SpecificDatumReader<T>(record.getSchema(), record.getSchema(), model);
+        return reader.read(null, DecoderFactory.get().binaryDecoder(out.toByteArray(), null));
+    }
 
     @Test
     void orderCreatedRoundTrips() throws Exception {
-        var event = new OrderCreated(UUID.randomUUID(), UUID.randomUUID(), Instant.now(),
-                "cust-1", List.of(new OrderItem("P100", 2, new BigDecimal("49.90"))),
+        var event = new OrderCreated(UUID.randomUUID(), UUID.randomUUID(),
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS), "cust-1",
+                List.of(new OrderItem("P100", 2, new BigDecimal("49.90"))),
                 new BigDecimal("99.80"));
-        var json = mapper.writeValueAsString(event);
-        assertThat(mapper.readValue(json, OrderCreated.class)).isEqualTo(event);
+        assertThat(roundTrip(event)).isEqualTo(event);
     }
 
     @Test
     void paymentAuthorizedRoundTrips() throws Exception {
-        var event = new PaymentAuthorized(UUID.randomUUID(), UUID.randomUUID(), Instant.now(),
+        var event = new PaymentAuthorized(UUID.randomUUID(), UUID.randomUUID(),
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
                 UUID.randomUUID(), new BigDecimal("99.80"),
                 List.of(new OrderItem("P100", 2, new BigDecimal("49.90"))));
-        var json = mapper.writeValueAsString(event);
-        assertThat(mapper.readValue(json, PaymentAuthorized.class)).isEqualTo(event);
+        assertThat(roundTrip(event)).isEqualTo(event);
     }
 }
