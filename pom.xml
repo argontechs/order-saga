@@ -19,5 +19,6 @@
   </properties>
   <modules>
     <module>common-events</module>
+    <module>common-messaging</module>
   </modules>
 </project>
