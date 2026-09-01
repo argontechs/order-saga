@@ -23,6 +23,7 @@ public class OutboxPublisher {
     public void publishPending() {
         for (var row : repository.findTop100ByPublishedAtIsNullOrderByCreatedAtAsc()) {
             var event = codec.fromJson(row.getType(), row.getPayload());
+            // sync send: preserves per-aggregate ordering
             kafkaTemplate.send(row.getTopic(), row.getAggregateId().toString(), event).join();
             row.markPublished();
             repository.save(row);

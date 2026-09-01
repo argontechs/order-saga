@@ -88,8 +88,8 @@ rows, and the handler returns without reapplying the business effect.
 `ExponentialBackOffWithMaxRetries(3)` (500ms initial, ×2 multiplier) and a
 `DeadLetterPublishingRecoverer`. A handler that keeps throwing gets three retries, then the record is
 published to `<consumer-group>.DLT` with failure-reason headers instead of blocking the partition
-forever. Separate byte[]/JSON producer templates handle both deserialization failures (poison bytes)
-and business-logic failures (a JSON-shaped record whose handling code threw).
+forever. Separate byte[]/Avro producer templates handle both deserialization failures (poison bytes)
+and business-logic failures (an Avro record whose handling code threw).
 
 **Choreography vs. orchestration.** No service centrally directs the saga; each one reacts to events
 on the topics it cares about and emits its own result. That keeps services independently deployable
@@ -219,8 +219,11 @@ This is phase 1 of a 4-phase plan; see the design spec at
 [`docs/superpowers/specs/2026-09-01-order-saga-design.md`](docs/superpowers/specs/2026-09-01-order-saga-design.md).
 
 - ~~**Phase 2 — Schema Registry + Avro.** Migrate events from JSON to Avro-with-Confluent-Schema-Registry,
-  add the registry service to Compose, get compile-time/CI schema-compatibility checking.~~ Done —
-  see [Avro & Schema Registry](#avro--schema-registry) above.
+  add the registry service to Compose.~~ Done — see [Avro & Schema Registry](#avro--schema-registry)
+  above. A production posture would go further: pre-register schemas instead of relying on
+  `auto.register.schemas` (default `true` here), set `BACKWARD_TRANSITIVE` compatibility on each
+  subject, and gate compatibility checks in CI with the `kafka-schema-registry-maven-plugin` — schemas
+  here auto-register on first publish for demo simplicity.
 - **Phase 3 — Kafka Streams read model.** An `order-view-service` with no database of its own,
   materializing a full per-order event timeline from all four topics via a Streams topology, exposed
   through interactive queries (`GET /orders/{id}/timeline`).

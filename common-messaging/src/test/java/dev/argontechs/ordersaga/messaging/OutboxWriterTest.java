@@ -27,6 +27,8 @@ class OutboxWriterTest {
         var row = captor.getValue();
         assertThat(row.getId()).isEqualTo(event.getEventId());
         assertThat(row.getType()).isEqualTo("dev.argontechs.ordersaga.events.InventoryReserved");
+        assertThat(row.getAggregateId()).isEqualTo(orderId);
+        assertThat(row.getTopic()).isEqualTo("inventory.events");
         assertThat(row.getPayload()).contains(orderId.toString());
         assertThat(row.getPublishedAt()).isNull();
     }
