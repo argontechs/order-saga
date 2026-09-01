@@ -105,6 +105,23 @@ that's bigger than strictly needed for payment concerns, and if `OrderItem`'s sh
 payment-service (which just relays it) needs a coordinated redeploy too. Acceptable here because the
 event schema is small and centrally owned in `common-events`.
 
+**Avro & Schema Registry.** Events serialize as Avro against Confluent Schema Registry
+(`http://localhost:8085` locally, `schema-registry:8081` inside Compose), one schema per event type
+under `common-events`. Subjects register with `RecordNameStrategy`, not the default
+`TopicNameStrategy` — each of the three multi-producer topics (`payment.events`,
+`inventory.events`, `order.events`) carries several distinct event types (e.g. `PaymentAuthorized`
+and `PaymentFailed` both land on `payment.events`), and `TopicNameStrategy` binds one schema per
+topic, which would force those event types into a single Avro union schema evolved together.
+`RecordNameStrategy` gives each event type — `dev.argontechs.ordersaga.events.OrderCreated` and so
+on — its own subject and its own compatibility history, independent of which topic it happens to
+ride on. The outbox still stores the event as Avro-JSON text in `OutboxWriter`'s own DB transaction,
+not the registry-encoded wire bytes — so a committed order write never depends on the registry being
+reachable at write time. `OutboxPublisher` reconstructs the typed record from that JSON and hands it
+to the Avro serializer (which does the registry round-trip) only at send time, keeping registry
+availability off the write path's critical section. Module tests (`*IT.java`) point
+`schema.registry.url` at `mock://<service-name>` — Confluent's in-JVM fake registry — so schema
+registration and compatibility checks run identically to production without an extra Testcontainer.
+
 **Why auto-create is off.** This bit for real during development: with the broker's topic
 auto-create enabled, a consumer's `@KafkaListener` subscribed to a topic *before* the owning
 service's `NewTopic` bean had run, and the broker auto-created that topic with its default of 1
@@ -196,8 +213,9 @@ paths exercised identically by every consumer — a deliberate spec deviation ra
 This is phase 1 of a 4-phase plan; see the design spec at
 [`docs/superpowers/specs/2026-09-01-order-saga-design.md`](docs/superpowers/specs/2026-09-01-order-saga-design.md).
 
-- **Phase 2 — Schema Registry + Avro.** Migrate events from JSON to Avro-with-Confluent-Schema-Registry,
-  add the registry service to Compose, get compile-time/CI schema-compatibility checking.
+- ~~**Phase 2 — Schema Registry + Avro.** Migrate events from JSON to Avro-with-Confluent-Schema-Registry,
+  add the registry service to Compose, get compile-time/CI schema-compatibility checking.~~ Done —
+  see [Avro & Schema Registry](#patterns) above.
 - **Phase 3 — Kafka Streams read model.** An `order-view-service` with no database of its own,
   materializing a full per-order event timeline from all four topics via a Streams topology, exposed
   through interactive queries (`GET /orders/{id}/timeline`).
