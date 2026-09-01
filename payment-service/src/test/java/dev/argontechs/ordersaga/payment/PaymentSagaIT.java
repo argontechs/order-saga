@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -19,12 +17,7 @@ import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 @Import({TestcontainersConfig.class, KafkaTestSupport.class})
-class PaymentSagaIT {
-
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.kafka.bootstrap-servers", TestcontainersConfig::getBootstrapServers);
-    }
+class PaymentSagaIT extends AbstractKafkaIT {
 
     @Autowired KafkaTestSupport kafka;
     @Autowired PaymentRepository payments;
