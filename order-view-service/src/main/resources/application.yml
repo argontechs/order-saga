@@ -1,0 +1,15 @@
+server:
+  port: 8086
+spring:
+  application:
+    name: order-view-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    properties:
+      schema.registry.url: http://localhost:8085
+    streams:
+      application-id: order-view-service
+      properties:
+        processing.guarantee: at_least_once
+        commit.interval.ms: 1000
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
