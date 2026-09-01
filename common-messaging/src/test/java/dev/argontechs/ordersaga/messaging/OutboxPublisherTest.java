@@ -1,8 +1,11 @@
 package dev.argontechs.ordersaga.messaging;
 
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 
@@ -36,7 +39,9 @@ class OutboxPublisherTest {
         when(template.send(anyString(), anyString(), any(SpecificRecordBase.class)))
                 .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
 
-        new OutboxPublisher(repo, template, codec).publishPending();
+        ObjectProvider<Tracer> tracerProvider = mock(ObjectProvider.class);
+        ObjectProvider<Propagator> propagatorProvider = mock(ObjectProvider.class);
+        new OutboxPublisher(repo, template, codec, tracerProvider, propagatorProvider).publishPending();
 
         var topicCaptor = ArgumentCaptor.forClass(String.class);
         var keyCaptor = ArgumentCaptor.forClass(String.class);

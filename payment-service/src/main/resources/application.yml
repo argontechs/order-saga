@@ -29,3 +29,19 @@ spring:
         value.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
     properties:
       schema.registry.url: http://localhost:8085
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

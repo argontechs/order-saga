@@ -35,6 +35,14 @@ services:
       timeout: 5s
       retries: 20
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
   order-service:
     build: ./order-service
     profiles: [app]
@@ -44,6 +52,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orders_db
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -51,6 +60,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   payment-service:
     build: ./payment-service
@@ -61,6 +72,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payments_db
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -68,6 +80,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   inventory-service:
     build: ./inventory-service
@@ -78,6 +92,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -85,6 +100,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   shipping-service:
     build: ./shipping-service
@@ -95,6 +112,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/shipping_db
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
@@ -102,6 +120,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   order-view-service:
     build: ./order-view-service
@@ -111,11 +131,14 @@ services:
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     depends_on:
       kafka:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      jaeger:
+        condition: service_started
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.7.0

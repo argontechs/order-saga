@@ -1,7 +1,10 @@
 package dev.argontechs.ordersaga.messaging;
 
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -13,9 +16,15 @@ import static org.mockito.Mockito.verify;
 class OutboxWriterTest {
 
     @Test
+    @SuppressWarnings("unchecked")
     void writesAvroJsonRow() {
         var repo = mock(OutboxRepository.class);
-        var writer = new OutboxWriter(repo, new AvroPayloadCodec());
+        // No tracer/propagator beans present (the common case for a module with no
+        // tracing auto-config on the classpath) — write() must succeed with a null
+        // traceparent, exercised explicitly in OutboxTraceparentTest.
+        ObjectProvider<Tracer> tracerProvider = mock(ObjectProvider.class);
+        ObjectProvider<Propagator> propagatorProvider = mock(ObjectProvider.class);
+        var writer = new OutboxWriter(repo, new AvroPayloadCodec(), tracerProvider, propagatorProvider);
         var orderId = UUID.randomUUID();
         var event = new dev.argontechs.ordersaga.events.InventoryReserved(
                 UUID.randomUUID(), orderId, Instant.now());

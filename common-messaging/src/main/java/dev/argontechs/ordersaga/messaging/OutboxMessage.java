@@ -21,6 +21,8 @@ public class OutboxMessage {
     private Instant createdAt;
     @Column(name = "published_at")
     private Instant publishedAt;
+    @Column(name = "traceparent")
+    private String traceparent;
 
     protected OutboxMessage() {}
 
@@ -41,5 +43,7 @@ public class OutboxMessage {
     public String getPayload() { return payload; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getPublishedAt() { return publishedAt; }
+    public String getTraceparent() { return traceparent; }
+    public void setTraceparent(String traceparent) { this.traceparent = traceparent; }
     public void markPublished() { this.publishedAt = Instant.now(); }
 }
