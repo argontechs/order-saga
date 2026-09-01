@@ -1,6 +1,7 @@
 package dev.argontechs.ordersaga.messaging;
 
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -13,6 +14,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.CommonErrorHandler;
+import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
@@ -28,7 +30,8 @@ public class KafkaErrorConfig {
     @SuppressWarnings("unchecked")
     public CommonErrorHandler kafkaErrorHandler(KafkaProperties props,
             @Value("${spring.kafka.consumer.group-id}") String group,
-            @Value("${spring.kafka.properties.schema.registry.url}") String registryUrl) {
+            @Value("${spring.kafka.properties.schema.registry.url}") String registryUrl,
+            MeterRegistry registry) {
         Map<String, Object> producerProps = Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, String.join(",", props.getBootstrapServers()));
         var bytesTemplate = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
@@ -48,12 +51,27 @@ public class KafkaErrorConfig {
         templates.put(byte[].class, bytesTemplate);   // deserialization poison → raw bytes
         templates.put(Object.class, avroTemplate);    // business failure → Avro-serialized
 
-        var recoverer = new DeadLetterPublishingRecoverer(templates,
+        var dlqRecoverer = new DeadLetterPublishingRecoverer(templates,
                 (record, ex) -> new TopicPartition(group + ".DLT", record.partition()));
 
         var backOff = new ExponentialBackOffWithMaxRetries(3);
         backOff.setInitialInterval(500);
         backOff.setMultiplier(2.0);
-        return new DefaultErrorHandler(recoverer, backOff);
+        return new DefaultErrorHandler(countingRecoverer(dlqRecoverer, registry, group), backOff);
+    }
+
+    /**
+     * Wraps a DLT recoverer with a counter increment on every recovery, so DLT volume is
+     * observable via {@code ordersaga.dlt.messages{group=...}} without altering DLT routing.
+     * Package-private so the counting behavior can be unit-tested without standing up the
+     * full {@link #kafkaErrorHandler} bean (which needs a schema registry URL and Kafka
+     * bootstrap servers).
+     */
+    static ConsumerRecordRecoverer countingRecoverer(ConsumerRecordRecoverer dlqRecoverer,
+            MeterRegistry registry, String group) {
+        return (rec, ex) -> {
+            registry.counter("ordersaga.dlt.messages", "group", group).increment();
+            dlqRecoverer.accept(rec, ex);
+        };
     }
 }
