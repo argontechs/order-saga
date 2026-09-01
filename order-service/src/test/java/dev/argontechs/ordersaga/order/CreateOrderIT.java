@@ -51,4 +51,45 @@ class CreateOrderIT extends AbstractKafkaIT {
                 Map.of("customerId", "cust-1", "items", java.util.List.of()), Map.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
+
+    @Test
+    void rejectsDuplicateProductIdInItems() {
+        var body = Map.of("customerId", "cust-1", "items", java.util.List.of(
+                Map.of("productId", "P100", "quantity", 1, "unitPrice", 10.00),
+                Map.of("productId", "P100", "quantity", 2, "unitPrice", 5.00)));
+
+        var response = rest.postForEntity("/orders", body, Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void rejectsZeroQuantity() {
+        var body = Map.of("customerId", "cust-1",
+                "items", java.util.List.of(Map.of("productId", "P100", "quantity", 0, "unitPrice", 10.00)));
+
+        var response = rest.postForEntity("/orders", body, Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void rejectsNegativeQuantity() {
+        var body = Map.of("customerId", "cust-1",
+                "items", java.util.List.of(Map.of("productId", "P100", "quantity", -1, "unitPrice", 10.00)));
+
+        var response = rest.postForEntity("/orders", body, Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void rejectsZeroUnitPrice() {
+        var body = Map.of("customerId", "cust-1",
+                "items", java.util.List.of(Map.of("productId", "P100", "quantity", 1, "unitPrice", 0.00)));
+
+        var response = rest.postForEntity("/orders", body, Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
 }
