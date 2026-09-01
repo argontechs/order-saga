@@ -23,6 +23,8 @@ flowchart LR
     K -->|InventoryReserved| SHP[shipping-service]
     SHP -->|OrderShipped / ShipmentFailed| K
     K -->|all events| ORD
+    K -->|all events| VIEW[order-view-service]
+    VIEW -->|GET /orders/id/timeline| Client
 ```
 
 Each service also owns a Postgres database (`orders_db`, `payments_db`, `inventory_db`,
@@ -105,6 +107,23 @@ that's bigger than strictly needed for payment concerns, and if `OrderItem`'s sh
 payment-service (which just relays it) needs a coordinated redeploy too. Acceptable here because the
 event schema is small and centrally owned in `common-events`.
 
+### CQRS read model (Kafka Streams)
+
+`order-view-service` has no database of its own. A Kafka Streams topology (`TopologyConfig`) merges
+all four topics — `orders.events`, `payments.events`, `inventory.events`, `shipping.events` — into one
+stream keyed by order id, then `groupByKey().aggregate(...)` folds each event into a per-order
+`OrderTimeline` (current status plus an ordered list of timeline entries) held in a Streams state
+store. The fold is idempotent the same way the request-side consumers are, but by event id rather than
+an `INSERT ... ON CONFLICT`: `TimelineAggregator` tracks seen `eventId`s on the aggregate itself and
+skips a duplicate delivery, since Streams' `at_least_once` processing guarantee can hand the aggregator
+the same record twice. `GET /orders/{id}/timeline` (`TimelineController`) doesn't query a database —
+it's an **interactive query** straight against the local state store via `KafkaStreams#store(...)`,
+so a read never leaves the JVM. The store is serialized with a plain `JsonSerde<OrderTimeline>`
+(Spring Kafka's JSON serde) rather than Avro — Avro is the four services' wire format for events in
+flight between them, but this store is view-local, never read by another service or replayed as an
+event, so there's no cross-service schema to keep compatible. `order-view-service` listens on `8086`
+because `8085` is already claimed by Schema Registry's host port mapping in Compose.
+
 ### Avro & Schema Registry
 
 Events serialize as Avro against Confluent Schema Registry (`http://localhost:8085` locally,
@@ -150,8 +169,9 @@ docker compose --profile app up --build
 > local-development placeholders only — never use them as production values.
 
 Services listen on: order-service `8081`, payment-service `8082`, inventory-service `8083`,
-shipping-service `8084`. Kafka is reachable from the host at `localhost:9092`. Schema Registry is at
-`http://localhost:8085` (container 8081, remapped to avoid the order-service port).
+shipping-service `8084`, order-view-service `8086`. Kafka is reachable from the host at
+`localhost:9092`. Schema Registry is at `http://localhost:8085` (container 8081, remapped to avoid
+the order-service port — which is also why order-view-service takes `8086` instead of `8085`).
 
 ## Demo script
 
@@ -176,6 +196,9 @@ curl -s -X POST localhost:8081/orders -H 'Content-Type: application/json' -d '{
 
 # poll status (swap in the orderId from any response above)
 curl -s localhost:8081/orders/<orderId> | jq
+
+# full event timeline for that order, from the Kafka Streams read model
+curl -s localhost:8086/orders/<orderId>/timeline | jq
 ```
 
 `payment-service`'s fake PSP also has a random failure rate, independent of the deterministic
@@ -224,9 +247,10 @@ This is phase 1 of a 4-phase plan; see the design spec at
   `auto.register.schemas` (default `true` here), set `BACKWARD_TRANSITIVE` compatibility on each
   subject, and gate compatibility checks in CI with the `kafka-schema-registry-maven-plugin` — schemas
   here auto-register on first publish for demo simplicity.
-- **Phase 3 — Kafka Streams read model.** An `order-view-service` with no database of its own,
+- ~~**Phase 3 — Kafka Streams read model.** An `order-view-service` with no database of its own,
   materializing a full per-order event timeline from all four topics via a Streams topology, exposed
-  through interactive queries (`GET /orders/{id}/timeline`).
+  through interactive queries (`GET /orders/{id}/timeline`).~~ Done — see
+  [CQRS read model (Kafka Streams)](#cqrs-read-model-kafka-streams) above.
 - **Phase 4 — Observability.** Micrometer + OpenTelemetry tracing to Jaeger (one order's trace across
   all four services and every Kafka hop), plus Prometheus + Grafana dashboards for consumer lag,
   throughput, and DLT counts.

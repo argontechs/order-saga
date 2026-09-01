@@ -21,6 +21,7 @@ import static org.awaitility.Awaitility.await;
 class OrderSagaE2ETest {
 
     final RestClient client = RestClient.create("http://localhost:8081");
+    final RestClient viewClient = RestClient.create("http://localhost:8086");
 
     private String createOrder(String productId, int quantity, double unitPrice) {
         AtomicReference<String> orderId = new AtomicReference<>();
@@ -49,9 +50,30 @@ class OrderSagaE2ETest {
                 .untilAsserted(() -> assertThat(getOrder(orderId).get("status")).isEqualTo(expected));
     }
 
+    @SuppressWarnings("unchecked")
+    private void awaitTimeline(String orderId) {
+        // order-view-service builds its state store by consuming all four topics independently of
+        // order-service's own view, so it can still be warming up (or briefly 503) after order-service
+        // already reports CONFIRMED — same cold-start tolerance idiom as createOrder().
+        AtomicReference<Map<String, Object>> timeline = new AtomicReference<>();
+        await().atMost(Duration.ofSeconds(60)).pollInterval(Duration.ofSeconds(2))
+                .ignoreExceptions()
+                .untilAsserted(() -> timeline.set(viewClient.get().uri("/orders/" + orderId + "/timeline")
+                        .retrieve().body(Map.class)));
+
+        var body = timeline.get();
+        assertThat(body.get("status")).isEqualTo("CONFIRMED");
+        var events = (List<Map<String, Object>>) body.get("events");
+        assertThat(events.size()).isGreaterThanOrEqualTo(4);
+        var types = events.stream().map(e -> (String) e.get("type")).toList();
+        assertThat(types).contains("OrderCreated", "PaymentAuthorized", "InventoryReserved", "OrderShipped");
+    }
+
     @Test
     void happyPathOrderIsConfirmed() {
-        awaitStatus(createOrder("P100", 2, 49.90), "CONFIRMED");
+        var orderId = createOrder("P100", 2, 49.90);
+        awaitStatus(orderId, "CONFIRMED");
+        awaitTimeline(orderId);
     }
 
     @Test

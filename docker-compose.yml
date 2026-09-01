@@ -103,6 +103,20 @@ services:
       schema-registry:
         condition: service_healthy
 
+  order-view-service:
+    build: ./order-view-service
+    profiles: [app]
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+
   schema-registry:
     image: confluentinc/cp-schema-registry:7.7.0
     ports:
