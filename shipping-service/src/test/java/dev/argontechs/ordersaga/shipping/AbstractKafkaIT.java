@@ -11,10 +11,24 @@ import org.springframework.test.context.DynamicPropertySource;
  * caching off a {@code Set<Method>}, and {@link java.lang.reflect.Method#equals}
  * compares declaring class too — so two IT classes each declaring their own
  * (identical-looking) {@code @DynamicPropertySource} method are never considered
- * equal, and Spring boots a brand new {@code ApplicationContext} (with its own
- * real {@code @KafkaListener}) per class. Extending this common base keeps the
- * {@code Method} identity shared, so the context (and its listener) is cached
- * and reused across nested test classes that need it.
+ * equal, and Spring boots a brand new {@code ApplicationContext} per class instead
+ * of reusing a cached one.
+ *
+ * <p><b>In this module specifically</b>, that context-cache reuse never actually
+ * happens between {@code ShippingIT.HappyPath} and {@code ShippingIT.ForcedFailure}:
+ * {@code ForcedFailure} carries its own {@code @TestPropertySource(properties =
+ * "shipping.failure-rate=1.0")}, which gives it a different
+ * {@code MergedContextConfiguration} from {@code HappyPath} regardless of shared
+ * {@code @DynamicPropertySource} method identity — so the two always get separate
+ * contexts, each with its own live {@code @KafkaListener} on consumer group
+ * {@code shipping-service}. This base class is kept anyway for consistency with
+ * sibling services (payment-service) and because it still matters within a group of
+ * classes that *do* share the same test properties (avoids needlessly re-forking a
+ * context among those). The actual flake guard for the cross-class listener race
+ * here is {@code @DirtiesContext(classMode = ClassMode.AFTER_CLASS)} on both nested
+ * classes in {@code ShippingIT}: it tears down each class's context — and with it,
+ * that class's live listener — before the next class starts, so only one listener on
+ * consumer group {@code shipping-service} is ever live at a time. Do not remove it.
  */
 abstract class AbstractKafkaIT {
 

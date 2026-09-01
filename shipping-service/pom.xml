@@ -88,8 +88,17 @@
                the parent) never matches compiled member classes containing "$",
                so ShippingIT$HappyPath/$ForcedFailure would otherwise be silently
                skipped (0 tests run). The `test` filter uses TestListResolver,
-               which does support "$" nested-class matching. -->
-          <test>**/*IT,**/*IT$*</test>
+               which does support "$" nested-class matching.
+
+               IMPORTANT: <test> REPLACES the parent's <includes> wholesale rather
+               than merging with it — Surefire does not union the two. So every
+               pattern from the parent's <includes> (**/*Test.java, **/Test*.java,
+               **/*Tests.java, **/*TestCase.java) is re-enumerated below alongside
+               the *IT/*IT$* patterns this override exists for. If a standard-named
+               unit test class is ever added to this module and its pattern is
+               dropped from this list, it will be silently skipped — the exact
+               failure mode this override was written to avoid for nested ITs. -->
+          <test>**/*IT,**/*IT$*,**/*Test,**/Test*,**/*Tests,**/*TestCase</test>
         </configuration>
       </plugin>
     </plugins>
