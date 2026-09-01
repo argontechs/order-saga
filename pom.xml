@@ -21,6 +21,7 @@
     <module>common-events</module>
     <module>common-messaging</module>
     <module>order-service</module>
+    <module>payment-service</module>
   </modules>
   <build>
     <plugins>
