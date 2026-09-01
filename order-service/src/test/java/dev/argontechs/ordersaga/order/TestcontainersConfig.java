@@ -9,15 +9,27 @@ import org.testcontainers.kafka.KafkaContainer;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfig {
 
-    @Bean
-    @ServiceConnection
-    PostgreSQLContainer<?> postgres() {
-        return new PostgreSQLContainer<>("postgres:16-alpine");
+    static KafkaContainer kafka = new KafkaContainer("apache/kafka-native:3.8.0");
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    static {
+        kafka.start();
+        postgres.start();
+    }
+
+    public static String getBootstrapServers() {
+        return kafka.getBootstrapServers();
     }
 
     @Bean
     @ServiceConnection
-    KafkaContainer kafka() {
-        return new KafkaContainer("apache/kafka-native:3.8.0");
+    PostgreSQLContainer<?> postgresContainer() {
+        return postgres;
+    }
+
+    @Bean
+    @ServiceConnection
+    KafkaContainer kafkaContainer() {
+        return kafka;
     }
 }
