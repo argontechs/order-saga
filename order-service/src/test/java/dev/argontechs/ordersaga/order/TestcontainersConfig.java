@@ -10,11 +10,9 @@ import org.testcontainers.kafka.KafkaContainer;
 public class TestcontainersConfig {
 
     static KafkaContainer kafka = new KafkaContainer("apache/kafka-native:3.8.0");
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     static {
         kafka.start();
-        postgres.start();
     }
 
     public static String getBootstrapServers() {
@@ -23,13 +21,13 @@ public class TestcontainersConfig {
 
     @Bean
     @ServiceConnection
-    PostgreSQLContainer<?> postgresContainer() {
-        return postgres;
+    PostgreSQLContainer<?> postgres() {
+        return new PostgreSQLContainer<>("postgres:16-alpine");
     }
 
     @Bean
     @ServiceConnection
-    KafkaContainer kafkaContainer() {
+    KafkaContainer kafka() {
         return kafka;
     }
 }
