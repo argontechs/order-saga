@@ -129,7 +129,7 @@ docker compose --profile app up --build
 
 Services listen on: order-service `8081`, payment-service `8082`, inventory-service `8083`,
 shipping-service `8084`. Kafka is reachable from the host at `localhost:9092`. Schema Registry is at
-`http://localhost:8085`.
+`http://localhost:8085` (container 8081, remapped to avoid the order-service port).
 
 ## Demo script
 
