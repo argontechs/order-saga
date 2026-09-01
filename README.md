@@ -224,9 +224,13 @@ docker compose --profile app --profile obs up --build
 - Grafana — `http://localhost:3000` (anonymous viewer access enabled locally; the "Order
   Saga" dashboard is provisioned automatically, no manual import needed)
 
-<!-- Screenshots of a live trace and the dashboard are captured separately post-merge and
-     will land at docs/img/jaeger-trace.png and docs/img/grafana-dashboard.png. Run the
-     stack locally per the instructions above to see them live in the meantime. -->
+One trace, the whole saga — `POST /orders` through payment, inventory, and shipping across
+three outbox hops (18 spans, 4 services):
+
+![Jaeger trace spanning the whole saga](docs/img/jaeger-trace.jpg)
+
+<!-- A Grafana dashboard screenshot will land at docs/img/grafana-dashboard.png once
+     captured; run the stack locally per the instructions above to see it live. -->
 
 ## Quickstart
 
@@ -333,5 +337,5 @@ Built in four phases, all complete — the spec lives at
   all four services and every Kafka hop), plus Prometheus + Grafana dashboards for consumer lag,
   throughput, and DLT counts.~~ Done — see [Observability](#observability) above. Trace continuity
   across the outbox hop (the part that actually breaks by default) required the `traceparent` column
-  + `withSpan` scope trick described there; screenshots of a live trace and dashboard weren't captured
-  as part of this phase — run the stack locally per the Observability section to see them.
+  + `withSpan` scope trick described there; a live trace screenshot is in the Observability section,
+  and the Grafana dashboard can be seen by running the stack locally per that section.
