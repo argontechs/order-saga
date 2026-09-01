@@ -12,7 +12,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Component
-@KafkaListener(topics = Topics.ORDERS, groupId = "${spring.kafka.consumer.group-id}")
+@KafkaListener(topics = {Topics.ORDERS, Topics.INVENTORY, Topics.SHIPPING},
+               groupId = "${spring.kafka.consumer.group-id}")
 public class PaymentListener {
 
     private final PaymentRepository payments;
@@ -44,6 +45,29 @@ public class PaymentListener {
             outbox.write(Topics.PAYMENTS, event.orderId(), new PaymentFailed(
                     UUID.randomUUID(), event.orderId(), Instant.now(), "declined by PSP"));
         }
+    }
+
+    @KafkaHandler
+    @Transactional
+    public void on(OutOfStock event) {
+        refund(event.eventId(), event.orderId());
+    }
+
+    @KafkaHandler
+    @Transactional
+    public void on(ShipmentFailed event) {
+        refund(event.eventId(), event.orderId());
+    }
+
+    private void refund(UUID eventId, UUID orderId) {
+        if (!guard.firstTime(eventId)) return;
+        payments.findByOrderId(orderId).ifPresent(payment -> {
+            if (payment.refund()) {
+                payments.save(payment);
+                outbox.write(Topics.PAYMENTS, orderId, new PaymentRefunded(
+                        UUID.randomUUID(), orderId, Instant.now(), payment.getId()));
+            }
+        });
     }
 
     @KafkaHandler(isDefault = true)
